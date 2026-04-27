@@ -17,5 +17,5 @@ shell-snapshots/
 telemetry/
 todos/
 
-# Archivos internos del marketplace de plugins
-plugins/marketplaces/claude-plugins-official/.gcs-sha
+# Plugins (gestionados por Claude Code, no versionables)
+plugins/
