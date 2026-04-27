@@ -1,3 +1,5 @@
+@constitution.md
+
 # Preferencias Personales de Luis Li
 
 ## Identidad

@@ -65,6 +65,59 @@
 - Operaciones de SwiftData fuera del ViewModel o Repository
 - Forzar unwrap (`!`) sin guard previo documentado
 
+### Backend — AWS Amplify Gen 2
+
+Stack por defecto para proyectos nuevos. Si el proyecto indica otro stack, ese tiene precedencia.
+
+**Required:**
+
+- AWS Amplify Gen 2 (`@aws-amplify/backend`) como framework de infraestructura
+- TypeScript en todas las Lambda functions y recursos CDK
+- DynamoDB vía Amplify Data (`a.schema()` con AppSync GraphQL)
+- Cognito para autenticación y grupos de usuarios
+- Lambda functions organizadas por dominio con `resource.ts` + `handler.ts`
+- CDK para recursos AWS que Amplify no cubre (SES, API Gateway custom, layers)
+
+**Estructura de backend:**
+
+```
+amplify/
+├── backend.ts                  # Composition root (defineBackend)
+├── auth/
+│   └── resource.ts             # Configuración de Cognito
+├── data/
+│   └── resource.ts             # Schema DynamoDB (AppSync)
+├── functions/
+│   ├── [domain]/
+│   │   ├── resource.ts         # Definición de la Lambda (defineFunction)
+│   │   └── handler.ts          # Handler de la Lambda
+│   ├── cognito-triggers/       # Triggers de Cognito (pre-signup, post-confirmation, etc.)
+│   ├── notifications/          # Funciones de notificación por email
+│   ├── services/               # Funciones de servicios de negocio
+│   └── shared/                 # Utilidades compartidas entre funciones
+│       ├── common/             # Tipos, validaciones, identidad, auditoría
+│       ├── email/              # Helpers de envío de email (SES)
+│       ├── payment/            # Lógica de pagos compartida
+│       └── [domain]/           # Tipos y helpers por dominio
+└── cdk/                        # Constructs CDK personalizados
+    ├── ses/                    # Configuración de SES
+    └── functions/              # Lambda Layers, etc.
+```
+
+**Reglas:**
+
+- `backend.ts` es el único punto de composición — no importar funciones entre sí directamente
+- Lógica compartida entre funciones va en `functions/shared/`, nunca duplicada
+- Autorización declarada en el schema (`allow.groups()`, `allow.owner()`) — no en los handlers
+- Variables de entorno inyectadas por Amplify o CDK, nunca hardcodeadas
+- Un `resource.ts` por función — define nombre, runtime y permisos IAM necesarios
+
+**Prohibited:**
+
+- Lógica de negocio en `backend.ts` (solo composición)
+- Acceso directo a DynamoDB desde funciones que pueden usar el cliente de Amplify Data
+- Secrets en código — usar Parameter Store o variables de entorno de Amplify
+
 ### Herramientas
 
 **Required:**
@@ -80,32 +133,47 @@
 
 ## 3. Architecture Patterns
 
-### Frontend Web — Next.js App Router
+### Frontend Web — Next.js Monorepo (Nx)
+
+Estructura de monorepo con Nx como build system:
 
 ```
-app/
-├── (routes)/          # Grupos de rutas
-├── _components/       # Componentes compartidos de la app
-└── _lib/              # Utilidades, hooks, helpers
+apps/
+├── web/               # App principal (Next.js App Router)
+│   └── src/
+│       ├── app/
+│       │   └── (public)/  # Grupos de rutas públicas
+│       ├── components/    # Componentes locales de la app
+│       │   ├── atoms/
+│       │   ├── molecules/
+│       │   └── organisms/
+│       ├── lib/           # Clientes externos, configuración
+│       ├── services/      # Llamadas a APIs / AWS Amplify
+│       └── i18n/          # Internacionalización
+├── admin/             # App de administración (Next.js)
+└── web-e2e/           # Tests E2E con Playwright
 
-src/
-├── components/        # Componentes reutilizables (UI puro)
-├── features/          # Módulos de feature completos
-│   └── [feature]/
-│       ├── components/
-│       ├── hooks/
-│       └── types.ts
-├── lib/               # Clientes externos, configuración
-└── types/             # Tipos globales
+packages/
+├── ui/                # Design system compartido
+│   └── src/
+│       ├── atoms/
+│       ├── molecules/
+│       └── organisms/
+├── core/              # Lógica de negocio compartida (auth, etc.)
+│   └── src/
+│       └── [domain]/
+│           └── services/
+├── utils/             # Utilidades compartidas
+└── email-templates/   # Templates de email (React Email)
 ```
-
-[COMPLETAR: ajusta la estructura si la tuya es diferente]
 
 **Regla de dependencias:**
 
-- Componentes UI no conocen lógica de negocio
-- Server Components por defecto, Client Components solo cuando necesario
-- Fetch en Server Components, no en useEffect salvo casos justificados
+- `apps/*` pueden importar de `packages/*`, nunca al revés
+- Componentes UI (`packages/ui`) no contienen lógica de negocio
+- Servicios en `apps/*/src/services/` o `packages/core/` — nunca en componentes
+- Server Components por defecto; Client Components solo cuando hay interactividad
+- Fetch en Server Components o services, no en `useEffect` salvo casos justificados
 
 ### Frontend Mobile — SwiftUI MVVM
 
@@ -175,8 +243,45 @@ View → ViewModel → Service / Repository → Model
 
 - Componentes: responsabilidad única, sin lógica de negocio mezclada con UI
 - Funciones puras cuando sea posible
-- Max líneas por función: [COMPLETAR — ej. 50]
+- Max líneas por función: 50
 - Props de componentes tipadas con interface explícita, nunca con `any`
+
+### Error Handling
+
+**TypeScript / Web:**
+
+Patrón `Result<T, E>` para errores esperados en servicios y use cases:
+
+```ts
+type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E }
+```
+
+- Servicios retornan `Result<T, AppError>` — nunca lanzan excepciones para errores de negocio
+- Errores inesperados (red, crashes) se propagan como excepciones y son capturados por Error Boundaries
+- Error Boundaries en capas superiores del árbol de componentes para evitar duplicación de manejo de UI
+- Errores esperados (validación, 404, conflictos) se tipan con discriminated unions — no `string` ni `any`
+
+```ts
+type AppError =
+  | { type: 'validation'; fields: Record<string, string> }
+  | { type: 'not_found'; resource: string }
+  | { type: 'unauthorized' }
+  | { type: 'unexpected'; cause: unknown }
+```
+
+**Swift:**
+
+- `Result<T, Error>` con `async throws` para operaciones de red en Services
+- `do/catch` en ViewModels — nunca en Views
+- Errores de dominio tipados como `enum` conformando `Error`
+
+```swift
+enum AuthError: Error {
+    case invalidCredentials
+    case sessionExpired
+    case networkUnavailable(underlying: Error)
+}
+```
 
 ### Documentación
 
