@@ -45,25 +45,33 @@
 - Lógica de negocio en componentes UI
 - [COMPLETAR: otras prohibiciones]
 
-### Frontend Mobile
+### Frontend Mobile — iOS
 
 **Required:**
 
-- SwiftUI
-- [COMPLETAR: patrón de arquitectura — MVVM, TCA, etc.]
-- [COMPLETAR: gestión de dependencias — SPM, etc.]
+- SwiftUI (no UIKit salvo integración puntual justificada)
+- MVVM — ViewModel como única fuente de verdad de la vista
+- SwiftData para persistencia local
+- Alamofire para networking (tipado con `Decodable` siempre)
+- CocoaPods para gestión de dependencias
+- `async/await` para operaciones asíncronas
 
 **Prohibited:**
 
-- [COMPLETAR]
+- Lógica de negocio en Views (`body` solo para layout y binding)
+- Llamadas directas a Alamofire desde una View
+- Operaciones de SwiftData fuera del ViewModel o Repository
+- Forzar unwrap (`!`) sin guard previo documentado
 
 ### Herramientas
 
 **Required:**
 
 - ESLint + Prettier para Web
-- [COMPLETAR: herramienta de tests — Jest, Vitest, Testing Library, etc.]
+- [COMPLETAR: herramienta de tests Web — Jest, Vitest, Testing Library, etc.]
 - [COMPLETAR: herramienta de tests E2E — Playwright, Cypress, etc.]
+- XCTest para iOS
+- SwiftLint para linting en iOS
 - Git con Conventional Commits
 
 ---
@@ -96,13 +104,43 @@ src/
 - Server Components por defecto, Client Components solo cuando necesario
 - Fetch en Server Components, no en useEffect salvo casos justificados
 
-### Frontend Mobile — SwiftUI
+### Frontend Mobile — SwiftUI MVVM
 
 ```
-[COMPLETAR: estructura de carpetas que usas]
+Features/
+├── [Feature]/
+│   ├── Views/
+│   │   └── FeatureView.swift
+│   └── ViewModels/
+│       └── FeatureViewModel.swift
+│
+Models/                    # SwiftData @Model compartidos
+├── [Entity].swift
+│
+Services/                  # Capa de red con Alamofire
+├── APIClient.swift        # Configuración base (baseURL, headers, interceptors)
+└── [Feature]Service.swift # Endpoints por dominio
+│
+Repositories/              # Acceso a SwiftData
+└── [Entity]Repository.swift
+│
+Shared/
+├── Components/            # Views reutilizables
+├── Extensions/            # Extensions de tipos nativos
+└── Utils/                 # Helpers, formatters, constantes
 ```
 
-[COMPLETAR: patrón — MVVM, separación View/ViewModel/Model, etc.]
+**Regla de dependencias:**
+
+```
+View → ViewModel → Service / Repository → Model
+```
+
+- `View`: solo layout, bindings y navegación. Sin `if/else` de lógica de negocio.
+- `ViewModel`: estado de UI, validaciones, coordinación entre Service y Repository. Marcado con `@Observable`.
+- `Service`: requests Alamofire, decode de respuesta a tipos `Decodable`. Sin estado.
+- `Repository`: operaciones CRUD sobre SwiftData. Sin lógica de red.
+- `Model`: structs `Decodable` para red y clases `@Model` para persistencia. Sin comportamiento.
 
 ---
 
@@ -121,7 +159,14 @@ src/
 
 **Swift:**
 
-- [COMPLETAR: convenciones que usas]
+- Tipos, structs, clases, enums y protocolos: `PascalCase`
+- Variables, funciones y parámetros: `camelCase`
+- Constantes de módulo: `camelCase` (convención Swift — no `UPPER_SNAKE_CASE`)
+- Archivos: mismo nombre que el tipo que contienen — `UserViewModel.swift`
+- ViewModels: sufijo `ViewModel` — `LoginViewModel`
+- Services: sufijo `Service` — `AuthService`
+- Repositories: sufijo `Repository` — `UserRepository`
+- Protocolos de comportamiento: sufijo `-ing` o `-able` — `Authenticating`, `Cacheable`
 
 ### Function Guidelines
 
@@ -155,19 +200,20 @@ src/
 **Herramientas:**
 
 - [COMPLETAR: Jest / Vitest + Testing Library para Web]
-- [COMPLETAR: XCTest para iOS]
+- XCTest para iOS (unit tests de ViewModels y Services)
 
 ### Qué se testea siempre
 
-- Lógica de negocio (hooks, utils, servicios)
+- Lógica de negocio (hooks/utils en Web, ViewModels en iOS)
 - Formularios con validación
-- [COMPLETAR: otros]
+- Services de red: respuesta correcta y manejo de errores (con mock de Alamofire)
+- Repositories: operaciones CRUD sobre SwiftData en memoria
 
 ### Qué NO se testea
 
-- Estilos visuales
-- Librerías de terceros
-- [COMPLETAR]
+- Estilos visuales ni layout de SwiftUI
+- Librerías de terceros (Alamofire, CocoaPods deps)
+- Views directamente (se testea el ViewModel que las alimenta)
 
 ---
 
@@ -178,8 +224,10 @@ src/
 - Sanitizar output renderizado dinámicamente (prevención XSS)
 - Autenticación verificada en Server Components / middleware de Next.js
 - [COMPLETAR: herramienta/estrategia de auth — NextAuth, Clerk, etc.]
-- Dependencias auditadas: `npm audit` antes de releases
-- [COMPLETAR: otras prácticas de seguridad relevantes]
+- Dependencias auditadas: `npm audit` (Web) y revisión de Podfile.lock antes de releases
+- Credenciales iOS en Keychain, nunca en UserDefaults ni en código
+- Headers de autenticación inyectados en `RequestInterceptor` de Alamofire, no en cada llamada
+- Certificados con SSL pinning en endpoints sensibles si el proyecto lo requiere
 
 ---
 
