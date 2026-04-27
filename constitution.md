@@ -191,14 +191,14 @@ View → ViewModel → Service / Repository → Model
 
 ### Estrategia
 
-[COMPLETAR: ¿qué priorizas? Unit, integration, E2E]
+Prioridad de pruebas: Integración, Unidad, E2E. Justificación: las pruebas de integración cubren también las pruebas de unidad. E2E requiere un escenario complejo y puede gastar más tokens en el proceso de pruebas.
 
 **Required:**
 
-- [COMPLETAR: cobertura mínima — ej. 80% en lógica de negocio]
+- 90%
 - Happy path + al menos un error path por función crítica
 - Tests unitarios sin dependencias externas reales
-- [COMPLETAR: mocking strategy]
+- Los mocks para enmascarar consultas en bases de datos y en consultas de APIs
 
 **Herramientas:**
 
@@ -226,7 +226,7 @@ View → ViewModel → Service / Repository → Model
 - Validar input del usuario siempre en el servidor, no solo en el cliente
 - Sanitizar output renderizado dinámicamente (prevención XSS)
 - Autenticación verificada en Server Components / middleware de Next.js
-- [COMPLETAR: herramienta/estrategia de auth — NextAuth, Clerk, etc.]
+- La autenticación depende del stack definido por cada proyecto. Se da prioridad al uso de AWS Amplify Gen 2.
 - Dependencias auditadas: `npm audit` (Web) y revisión de `Podfile.lock` antes de releases
 - Credenciales iOS en Keychain, nunca en UserDefaults ni en código
 - Headers de autenticación inyectados en `RequestInterceptor` de Alamofire, no en cada llamada
@@ -244,7 +244,6 @@ Estas reglas NO se negocian NUNCA:
 4. **Tests antes de merge** — Las pruebas de lógica de negocio deben pasar
 5. **Validación en el servidor** — Nunca confiar solo en validación del cliente
 6. **Documentar funciones y estructuras** — Toda función/struct pública tiene doc
-7. [COMPLETAR: agrega tus reglas innegociables]
 
 ---
 
