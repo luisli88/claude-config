@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "plugins": {
+    "gopls-lsp@claude-plugins-official": [
+      {
+        "scope": "user",
+        "installPath": "/Users/luisli/.claude/plugins/cache/claude-plugins-official/gopls-lsp/1.0.0",
+        "version": "1.0.0",
+        "installedAt": "2026-04-05T06:10:50.033Z",
+        "lastUpdated": "2026-04-05T06:10:50.033Z"
+      }
+    ]
+  }
+}
