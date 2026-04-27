@@ -14,7 +14,8 @@
 - Explicit > Implicit
 - Type Safety > Flexibilidad
 - Código legible > Código inteligente
-- [COMPLETAR: agrega 1-2 valores propios]
+- Mantenibilidad > Escalabilidad
+- Código y archivos legibles > estructuras rigidas en archivos
 
 ### Development Principles
 
@@ -23,7 +24,8 @@
 - KISS — La solución más simple que resuelve el problema
 - Separation of Concerns — Cada módulo con una responsabilidad clara
 - Fail Fast — Errores visibles cuanto antes, no silenciados
-- [COMPLETAR: agrega principios propios si aplica]
+- Dependency Inversion Principle - Usa abstracciones y no entidades concretas
+- Boy Scout Rule - Deja el código limpio.
 
 ---
 
@@ -35,15 +37,15 @@
 
 - React + Next.js (App Router)
 - TypeScript strict mode (`"strict": true` en tsconfig)
-- [COMPLETAR: librería de estilos — Tailwind, CSS Modules, etc.]
-- [COMPLETAR: librería de estado — Zustand, Jotai, React Query, etc.]
-- [COMPLETAR: librería de formularios/validación — React Hook Form + Zod, etc.]
+- TailwindCSS, CSS Modules, SASS/SCSS
+- Uso de estados usando las opciones por defecto de React: useState, useReduce, createContext.
+- useForm Hooks, useTable Hooks.
 
 **Prohibited:**
 
 - `any` en TypeScript sin justificación explícita
 - Lógica de negocio en componentes UI
-- [COMPLETAR: otras prohibiciones]
+- Exponer API para consumo externo por medio de NextJS.
 
 ### Frontend Mobile — iOS
 
@@ -68,8 +70,8 @@
 **Required:**
 
 - ESLint + Prettier para Web
-- [COMPLETAR: herramienta de tests Web — Jest, Vitest, Testing Library, etc.]
-- [COMPLETAR: herramienta de tests E2E — Playwright, Cypress, etc.]
+- Jest, Testing Library
+- Playwright
 - XCTest para iOS
 - SwiftLint para linting en iOS
 - Git con Conventional Commits
@@ -100,6 +102,7 @@ src/
 [COMPLETAR: ajusta la estructura si la tuya es diferente]
 
 **Regla de dependencias:**
+
 - Componentes UI no conocen lógica de negocio
 - Server Components por defecto, Client Components solo cuando necesario
 - Fetch en Server Components, no en useEffect salvo casos justificados
@@ -136,7 +139,7 @@ Shared/
 View → ViewModel → Service / Repository → Model
 ```
 
-- `View`: solo layout, bindings y navegación. Sin `if/else` de lógica de negocio.
+- `View`: solo layout, bindings y navegación. Sin lógica de negocio.
 - `ViewModel`: estado de UI, validaciones, coordinación entre Service y Repository. Marcado con `@Observable`.
 - `Service`: requests Alamofire, decode de respuesta a tipos `Decodable`. Sin estado.
 - `Repository`: operaciones CRUD sobre SwiftData. Sin lógica de red.
@@ -199,7 +202,7 @@ View → ViewModel → Service / Repository → Model
 
 **Herramientas:**
 
-- [COMPLETAR: Jest / Vitest + Testing Library para Web]
+- Jest + Testing Library para Web
 - XCTest para iOS (unit tests de ViewModels y Services)
 
 ### Qué se testea siempre
@@ -224,10 +227,10 @@ View → ViewModel → Service / Repository → Model
 - Sanitizar output renderizado dinámicamente (prevención XSS)
 - Autenticación verificada en Server Components / middleware de Next.js
 - [COMPLETAR: herramienta/estrategia de auth — NextAuth, Clerk, etc.]
-- Dependencias auditadas: `npm audit` (Web) y revisión de Podfile.lock antes de releases
+- Dependencias auditadas: `npm audit` (Web) y revisión de `Podfile.lock` antes de releases
 - Credenciales iOS en Keychain, nunca en UserDefaults ni en código
 - Headers de autenticación inyectados en `RequestInterceptor` de Alamofire, no en cada llamada
-- Certificados con SSL pinning en endpoints sensibles si el proyecto lo requiere
+- SSL pinning en endpoints sensibles si el proyecto lo requiere
 
 ---
 
