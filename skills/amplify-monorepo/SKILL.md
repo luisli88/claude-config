@@ -942,48 +942,82 @@ Rules:
 
 - No business logic — UI only: styles, variants, layout.
 - Components typed with explicit interfaces.
-- Variants with CVA (class-variance-authority).
+- Design tokens defined in `packages/ui/src/styles/globals.css` with `@theme`. No raw hex values in components.
 - All components exported from `src/index.ts`.
 
-### CVA component pattern
+### Tailwind v4 @theme setup
+
+**`packages/ui/src/styles/globals.css`** — single source of truth for design tokens. Both apps import this file.
+
+```css
+@import "tailwindcss";
+
+@theme {
+  /* Primary brand color scale */
+  --color-primary-50: #eef1f9;
+  --color-primary-100: #d5dcf0;
+  --color-primary-700: #233369;
+  --color-primary-900: #111a3d;
+
+  /* Secondary */
+  --color-secondary-600: #34508f;
+
+  /* Neutral */
+  --color-neutral-0: #ffffff;
+  --color-neutral-900: #0f1520;
+
+  /* Accent */
+  --color-accent-gold: #c9a84c;
+  --color-accent-gold-light: #e8d5a0;
+
+  /* Typography */
+  --font-family-display: "Inter", sans-serif;
+  --font-family-body: "Inter", sans-serif;
+}
+```
+
+Token names become Tailwind utility classes: `bg-primary-700`, `text-accent-gold`, etc.
+
+### Component pattern
 
 ```typescript
 // packages/ui/src/atoms/button.tsx
-import { cva, type VariantProps } from 'class-variance-authority';
 
-const buttonVariants = cva(
-  'inline-flex items-center justify-center rounded-md font-medium transition-colors',
-  {
-    variants: {
-      variant: {
-        primary: 'bg-primary text-white hover:bg-primary/90',
-        secondary: 'bg-transparent border border-primary text-primary',
-        ghost: 'hover:bg-accent hover:text-accent-foreground',
-      },
-      size: {
-        sm: 'h-8 px-3 text-sm',
-        md: 'h-10 px-4',
-        lg: 'h-12 px-6 text-lg',
-      },
-    },
-    defaultVariants: { variant: 'primary', size: 'md' },
-  },
-);
+interface ButtonProps {
+  variant?: 'primary' | 'secondary' | 'ghost';
+  size?: 'sm' | 'md' | 'lg';
+  children: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  type?: 'button' | 'submit' | 'reset';
+  className?: string;
+}
 
-interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {}
+/** Primary interactive element with variant and size support. */
+export function Button({ variant = 'primary', size = 'md', className, children, ...props }: ButtonProps) {
+  const base = 'inline-flex items-center justify-center font-medium transition-colors';
+  const variants = {
+    primary: 'bg-primary-700 text-neutral-0 hover:bg-primary-900',
+    secondary: 'border-2 border-primary-700 text-primary-700 hover:bg-primary-50',
+    ghost: 'text-primary-700 hover:bg-primary-50',
+  };
+  const sizes = {
+    sm: 'px-3 py-1.5 text-sm',
+    md: 'px-5 py-2.5 text-base',
+    lg: 'px-7 py-3.5 text-lg',
+  };
 
-/** Primary interactive element. */
-export function Button({ variant, size, className, ...props }: ButtonProps) {
-  return <button className={buttonVariants({ variant, size, className })} {...props} />;
+  return (
+    <button className={`${base} ${variants[variant]} ${sizes[size]} ${className ?? ''}`} {...props}>
+      {children}
+    </button>
+  );
 }
 ```
 
 ### Required installations in packages/ui
 
 ```bash
-npm install class-variance-authority clsx tailwind-merge
 npm install react-hook-form @hookform/resolvers zod   # For molecules/form.tsx
 ```
 
@@ -1129,8 +1163,9 @@ NEXT_PUBLIC_APP_URL → Public URL of the web app
 - [ ] `lib/client.ts` in each app with `getGuestClient` / `getAuthenticatedClient`
 - [ ] `actions/` with Server Actions typed with `Result<T, E>`
 - [ ] `packages/ui` with atoms, molecules, and organisms
+- [ ] `packages/ui/src/styles/globals.css` with `@theme` design tokens — no raw hex values in components
 - [ ] `packages/core` with `createServerClient` and `middleware.ts`
-- [ ] i18n configured with next-intl in both apps
+- [ ] i18n configured with next-intl in both apps (per-locale directories: `es/`, `en/`, `pt/`)
 
 **Email:**
 
