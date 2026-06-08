@@ -1,6 +1,12 @@
+# Credenciales
+.credentials.json
+
 # Runtime y estado de sesión
 history.jsonl
 stats-cache.json
+settings.local.json
+.last-cleanup
+settings.json
 
 # Directorios de sesión y caché
 backups/
@@ -19,3 +25,10 @@ todos/
 
 # Plugins (gestionados por Claude Code, no versionables)
 plugins/
+
+# Cache de Integraciones
+mcp-needs-auth-cache.json
+
+# Skills adicionales
+skills/omarchy
+
