@@ -214,204 +214,22 @@ This is the authoritative structure. Follow it exactly. Do not add top-level dir
 
 ## TAILWIND V4 + DESIGN SYSTEM
 
-**`src/app/globals.css`** — Define all design tokens here using `@theme`. Never use raw hex values or Tailwind defaults in components.
+Invoke `/tailwind-theme` to configure `src/app/globals.css` with the `@theme` token block. Pass color overrides if the project has a specific brand palette.
 
-```css
-@import "tailwindcss";
-
-@theme {
-  /* Primary brand color scale (10 shades) */
-  --color-primary-50: #eef1f9;
-  --color-primary-100: #d5dcf0;
-  --color-primary-700: #233369;  /* brand primary */
-  --color-primary-900: #111a3d;
-
-  /* Secondary color scale */
-  --color-secondary-600: #34508f;  /* brand secondary */
-
-  /* Neutral scale */
-  --color-neutral-0: #ffffff;
-  --color-neutral-900: #0f1520;
-
-  /* Accent colors */
-  --color-accent-gold: #c9a84c;
-  --color-accent-gold-light: #e8d5a0;
-  --color-accent-sky: #5b9bd5;
-
-  /* Typography */
-  --font-family-display: "Open Sans", sans-serif;
-  --font-family-body: "Open Sans", sans-serif;
-
-  /* Spacing, radius, shadows — add as needed by the project */
-}
-```
-
-**Rules:**
-- All colors reference `--color-*` tokens from `@theme`. No hardcoded hex.
-- The token names in `@theme` become Tailwind utility classes: `bg-primary-700`, `text-accent-gold`, etc.
-- Add tokens only when needed by the project. Do not predefine a full design system for tokens that won't be used.
+Rules:
+- All Tailwind classes in components must reference `@theme` tokens (`bg-primary-700`, `text-neutral-0`). No raw hex values.
+- Tokens only when needed — do not predefine unused scales.
 
 ---
 
 ## i18n SETUP (ALWAYS MANDATORY)
 
-Every project uses `next-intl` with 3 locales: `es` (default), `en`, `pt`.
+Invoke `/next-intl-setup src/` to configure `next-intl` with locales `es` (default), `en`, `pt`. This creates `next.config.ts` wrapper, `src/i18n/routing.ts`, `request.ts`, `navigation.ts`, `src/middleware.ts`, the `[locale]` root layout, and the per-locale `messages/` directory structure.
 
-### 1. `next.config.ts`
-
-```typescript
-import createNextIntlPlugin from 'next-intl/plugin';
-
-const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
-
-const nextConfig = {};
-
-export default withNextIntl(nextConfig);
-```
-
-### 2. `src/i18n/routing.ts`
-
-```typescript
-import { defineRouting } from 'next-intl/routing';
-
-export const routing = defineRouting({
-  locales: ['es', 'en', 'pt'],
-  defaultLocale: 'es',
-});
-```
-
-### 3. `src/i18n/request.ts`
-
-```typescript
-import { getRequestConfig } from 'next-intl/server';
-import { routing } from './routing';
-
-export default getRequestConfig(async ({ requestLocale }) => {
-  let locale = await requestLocale;
-
-  if (!locale || !routing.locales.includes(locale as never)) {
-    locale = routing.defaultLocale;
-  }
-
-  return {
-    locale,
-    messages: (await import(`../../messages/${locale}/common.json`)).default,
-  };
-});
-```
-
-### 4. `src/i18n/navigation.ts`
-
-```typescript
-import { createNavigation } from 'next-intl/navigation';
-import { routing } from './routing';
-
-export const { Link, redirect, usePathname, useRouter, getPathname } =
-  createNavigation(routing);
-```
-
-Always import `Link`, `useRouter`, `usePathname` from `@/i18n/navigation`, never from `next/link` or `next/navigation`.
-
-### 5. Middleware `src/middleware.ts`
-
-```typescript
-import createMiddleware from 'next-intl/middleware';
-import { routing } from './i18n/routing';
-
-export default createMiddleware(routing);
-
-export const config = {
-  matcher: ['/((?!_next|_vercel|.*\\..*).*)'],
-};
-```
-
-### 6. Dynamic locale route
-
-Rename `src/app/` pages to live under `src/app/[locale]/`. The `[locale]` segment is handled by next-intl middleware — it intercepts all routes and injects the locale.
-
-### 7. Root layout `src/app/[locale]/layout.tsx`
-
-```typescript
-import { NextIntlClientProvider } from 'next-intl';
-import { getMessages } from 'next-intl/server';
-
-interface Props {
-  children: React.ReactNode;
-  params: Promise<{ locale: string }>;
-}
-
-/** Root layout: injects i18n context and shared UI wrappers. */
-export default async function LocaleLayout({ children, params }: Props) {
-  const { locale } = await params;
-  const messages = await getMessages();
-
-  return (
-    <html lang={locale}>
-      <body>
-        <NextIntlClientProvider messages={messages}>
-          {children}
-        </NextIntlClientProvider>
-      </body>
-    </html>
-  );
-}
-```
-
-### 8. Translation files structure
-
-Translations live in per-locale directories. Each locale directory has one JSON file per page group or domain. Spanish is always the source. Create English and Portuguese translations from Spanish. All locale directories must have identical file and key structures.
-
-```
-messages/
-├── es/
-│   ├── common.json     # nav, footer, shared labels
-│   └── {page}.json     # Add when a page outgrows common.json
-├── en/
-│   ├── common.json
-│   └── {page}.json
-└── pt/
-    ├── common.json
-    └── {page}.json
-```
-
-`messages/es/common.json`:
-```json
-{
-  "nav": { "home": "Inicio", "projects": "Proyectos" },
-  "hero": { "title": "...", "subtitle": "..." },
-  "contact": {
-    "title": "...",
-    "form": {
-      "emailLabel": "...",
-      "submit": "..."
-    },
-    "success": "...",
-    "error": "..."
-  }
-}
-```
-
-### 9. Using translations
-
-**Server Components** (async):
-```typescript
-import { getTranslations } from 'next-intl/server';
-
-export default async function Page() {
-  const t = await getTranslations('hero');
-  return <h1>{t('title')}</h1>;
-}
-```
-
-**Client Components** (`'use client'`):
-```typescript
-import { useTranslations } from 'next-intl';
-
-export function ContactForm() {
-  const t = useTranslations('contact');
-  return <button>{t('form.submit')}</button>;
-}
-```
+Rules:
+- Always import `Link`, `useRouter`, `usePathname` from `@/i18n/navigation` — never from `next/link` or `next/navigation`.
+- Message files use per-locale directories: `messages/es/common.json`, `messages/en/common.json`, `messages/pt/common.json`.
+- All locale directories must have identical file and key structures.
 
 ---
 
@@ -675,83 +493,12 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
 
 ## LAMBDA FUNCTION PATTERN
 
-Every Lambda function has two files:
+Invoke `/amplify-function <domain-name> "<iam-actions>"` to add a Lambda domain. This creates `amplify/functions/{domain}/resource.ts` and `handler.ts`, and updates `backend.ts` with the IAM grants.
 
-### `amplify/functions/{domain}/resource.ts`
-
-```typescript
-import { defineFunction } from '@aws-amplify/backend';
-
-/** Lambda function for {domain} domain. */
-export const {camelCaseName} = defineFunction({
-  name: '{kebab-name}',
-  timeoutSeconds: 15,
-  environment: {
-    // Inject non-secret config values here
-    // Secrets go in AWS Parameter Store, not here
-    REGION: 'us-east-1',
-  },
-});
-```
-
-Grant IAM permissions in `amplify/backend.ts`, not here:
-```typescript
-import { Policy, PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
-
-backend.{functionName}.resources.lambda.addToRolePolicy(
-  new PolicyStatement({
-    effect: Effect.ALLOW,
-    actions: ['ses:SendEmail', 'ses:SendRawEmail'],
-    resources: ['*'],
-  }),
-);
-```
-
-### `amplify/functions/{domain}/handler.ts`
-
-Handler types come from the Amplify Data schema (`amplify/data/resource.ts`), not from `aws-lambda`. Functions are invoked by the Amplify client through AppSync — the type contract is defined by the schema, not by the raw Lambda event shape.
-
-```typescript
-import type { Schema } from '../../data/resource';
-
-/**
- * Handles the sendContactEmail AppSync mutation.
- * The handler type is derived from the schema definition — arguments and
- * return type are inferred from the mutation declared in data/resource.ts.
- */
-export const handler: Schema['sendContactEmail']['functionHandler'] = async (event) => {
-  const { email, message } = event.arguments; // typed from schema — no manual interface needed
-
-  // Business logic here. No Amplify client — this IS the backend.
-  // Use AWS SDK clients directly (SES, S3, DynamoDB, etc.)
-
-  return 'ok';
-};
-```
-
-**Never import from `aws-lambda` for AppSync resolver handlers.** Those types reflect the raw Lambda invocation contract, not the AppSync one. Using `Schema['{mutationName}']['functionHandler']` ensures:
-- `event.arguments` is typed exactly as declared in the schema
-- The return type is enforced against the schema's `.returns()` definition
-- TypeScript catches mismatches when the schema changes
-
-**Rules for Lambda handlers:**
-- Handler type always comes from `Schema['{operationName}']['functionHandler']` in `../../data/resource`.
-- Use `async/await`, never callbacks.
-- Return `null` for void mutations (AppSync requires a return type; use `a.string()` with a nullable return).
-- Keep handlers under 100 lines. Extract shared logic to `amplify/functions/shared/`.
-
-### Shared utilities `amplify/functions/shared/`
-
-```
-amplify/functions/shared/
-├── email/
-│   └── ses.ts          # SES client + sendEmail helper
-├── common/
-│   ├── types.ts        # Shared Lambda input/output types
-│   └── validation.ts   # Shared input validation (zod on the Lambda side)
-└── {domain}/
-    └── types.ts        # Domain-specific types shared between functions
-```
+Rules:
+- Handler type always comes from `Schema['{operationName}']['functionHandler']` — never from `aws-lambda`.
+- IAM permissions are always granted in `backend.ts`, not in `resource.ts`.
+- Secrets go in `ampx secret set` and are referenced with `secret('NAME')` in `resource.ts`.
 
 ---
 
@@ -866,219 +613,34 @@ environment: {
 
 ## SERVER ACTIONS PATTERN
 
-Server Actions are the bridge between the Next.js frontend and Amplify. They are the **only** place where the Amplify Data client is instantiated.
+Invoke `/amplify-action <domain> <auth-mode>` to generate a Server Action for a domain. This creates `src/actions/{domain}.ts` (with Zod validation + `Result<T,E>` return type), `src/lib/schemas/{domain}.ts`, and the unit test scaffold.
 
-### Structure `src/actions/{domain}.ts`
+See `references/amplify-clients.md` for the client factory patterns (guest vs authenticated). See `references/error-handling.md` for the `Result<T,E>` and `AppError` type definitions.
 
-```typescript
-'use server';
-
-import { generateClient } from 'aws-amplify/data';
-import { Amplify } from 'aws-amplify';
-import outputs from '@/../amplify_outputs.json';
-import { type Schema } from '@/../amplify/data/resource';
-import { contactSchema, type ContactInput } from '@/lib/schemas/contact';
-import { type Result, type AppError } from '@/lib/types';
-
-Amplify.configure(outputs, { ssr: true });
-
-const client = generateClient<Schema>({ authMode: 'apiKey' });
-
-/**
- * Sends a contact request by calling the sendContactEmail AppSync mutation.
- * Validates the input server-side before calling Amplify.
- */
-export async function sendContactRequest(input: ContactInput): Promise<Result<void, AppError>> {
-  const parsed = contactSchema.safeParse(input);
-
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: { type: 'validation', fields: parsed.error.flatten().fieldErrors as Record<string, string> },
-    };
-  }
-
-  try {
-    const { errors } = await client.mutations.sendContactEmail(parsed.data);
-
-    if (errors?.length) {
-      return { ok: false, error: { type: 'unexpected', cause: errors } };
-    }
-
-    return { ok: true, value: undefined };
-  } catch (cause) {
-    return { ok: false, error: { type: 'unexpected', cause } };
-  }
-}
-```
-
-**Rules:**
-- Server Actions always re-validate with Zod, even if the client already validated.
-- Server Actions always return `Result<T, AppError>`. Never throw.
-- `generateClient` is instantiated at module level (singleton) — not inside the function body.
-- `Amplify.configure` is called once per module. For authenticated Server Actions, use `createServerRunner` + `runWithAmplifyServerContext` from `@aws-amplify/adapter-nextjs` instead.
+Rules:
+- `src/actions/` is the **only** place where Amplify client is instantiated.
+- Actions always re-validate with Zod and return `Result<T, AppError>`. Never throw for business errors.
 
 ---
 
 ## COMPONENT ARCHITECTURE
 
-### Atomic Design Layers
+Invoke `/ui-component <ComponentName> <atom|molecule|organism> [variants]` to generate a component. This creates the file at the correct path, applies the Server vs Client decision, and types the props interface.
 
-**Atoms** (`src/components/atoms/`): Base HTML elements with variant props. No children composition. No side effects. No data fetching.
-
-```typescript
-// src/components/atoms/Button.tsx
-'use client'; // Only if interactive. Prefer Server Component if no event handlers.
-
-interface ButtonProps {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'white' | 'accent';
-  size?: 'sm' | 'md' | 'lg';
-  children: React.ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
-  type?: 'button' | 'submit' | 'reset';
-}
-
-/** Base button element with variant and size support. */
-export function Button({ variant = 'primary', size = 'md', children, ...props }: ButtonProps) {
-  const base = 'inline-flex items-center justify-center font-medium transition-colors';
-  const variants = {
-    primary: 'bg-primary-700 text-neutral-0 hover:bg-primary-900',
-    secondary: 'border-2 border-primary-700 text-primary-700 hover:bg-primary-50',
-    ghost: 'text-primary-700 hover:bg-primary-50',
-    white: 'border-2 border-neutral-0 text-neutral-0 hover:bg-white/10',
-    accent: 'bg-accent-gold text-primary-700 hover:bg-accent-gold-light',
-  };
-  const sizes = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-5 py-2.5 text-base',
-    lg: 'px-7 py-3.5 text-lg',
-  };
-
-  return (
-    <button className={`${base} ${variants[variant]} ${sizes[size]}`} {...props}>
-      {children}
-    </button>
-  );
-}
-```
-
-**Molecules** (`src/components/molecules/`): Combine atoms. May contain local state (`useState`, `useForm`). Never call Server Actions directly — receive callbacks from the parent.
-
-```typescript
-// src/components/molecules/ContactForm.tsx
-'use client';
-
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useTranslations } from 'next-intl';
-import { contactSchema, type ContactInput } from '@/lib/schemas/contact';
-import { Button } from '@/components/atoms/Button';
-import { type AppError } from '@/lib/types';
-
-interface ContactFormProps {
-  /** Called on valid submission. Parent owns the Server Action call. */
-  onSubmit: (data: ContactInput) => Promise<void>;
-  error: AppError | null;
-  success: boolean;
-}
-
-/** Contact form: react-hook-form + zod. Dark theme. */
-export function ContactForm({ onSubmit, error, success }: ContactFormProps) {
-  const t = useTranslations('contact.form');
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<ContactInput>({
-    resolver: zodResolver(contactSchema),
-  });
-
-  return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate>
-      {/* fields */}
-      <Button type="submit" variant="accent" disabled={isSubmitting}>
-        {isSubmitting ? t('sending') : t('submit')}
-      </Button>
-      {error && <p role="alert">{t('error')}</p>}
-      {success && <p role="status">{t('success')}</p>}
-    </form>
-  );
-}
-```
-
-**Organisms** (`src/components/organisms/`): Full page sections. Can be Server or Client Components. May call Server Actions directly. Compose molecules and atoms.
-
-```typescript
-// src/app/[locale]/page.tsx (Server Component — the organism consumer)
-import { sendContactRequest } from '@/actions/contact';
-import { ContactForm } from '@/components/molecules/ContactForm';
-import { ContactSection } from '@/components/organisms/ContactSection';
-```
-
-### Server vs Client Component Rules
-
-| Condition | Component type |
-|---|---|
-| Reads from database or calls a Server Action | Server Component |
-| Uses `useState`, `useEffect`, `useForm`, event handlers | `'use client'` |
-| Uses `useTranslations` (next-intl client hook) | `'use client'` |
-| Uses `getTranslations` (next-intl server function) | Server Component |
-| Wraps a third-party animation or parallax library | `'use client'` |
-| Receives already-fetched data as props | Can be Server Component |
-
-Default to Server Components. Add `'use client'` only when required by the above conditions.
-
-### Props typing rules
-
-```typescript
-// Always use interface, never type alias for component props
-interface MyComponentProps {
-  title: string;
-  items: string[];
-  onSelect?: (item: string) => void;  // Optional callbacks as union with undefined
-}
-
-// Never:
-// type MyComponentProps = { title: string }  ← use interface
-// function MyComponent(props: any)            ← never any
-// function MyComponent({ title }: { title: string })  ← extract to interface
-```
+Rules:
+- Atoms: no side effects, no data fetching, no Server Action calls.
+- Molecules: may have local state (`useState`, `useForm`). Never call Server Actions directly.
+- Organisms: may call Server Actions. Default to Server Component.
+- Props always use `interface`, never `type alias`. No `any`.
+- Default to Server Components. Add `'use client'` only when required by hooks or event handlers.
 
 ---
 
 ## ERROR HANDLING PATTERN
 
-**`src/lib/types.ts`** — Define Result and AppError here, not in individual files.
+See `references/error-handling.md` for the `Result<T,E>` and `AppError` type definitions and usage patterns.
 
-```typescript
-/** Generic Result type for operations that can fail with a typed error. */
-export type Result<T, E = AppError> =
-  | { ok: true; value: T }
-  | { ok: false; error: E };
-
-/** Application-level errors with discriminated union for exhaustive handling. */
-export type AppError =
-  | { type: 'validation'; fields: Record<string, string> }
-  | { type: 'not_found'; resource: string }
-  | { type: 'unauthorized' }
-  | { type: 'conflict'; message: string }
-  | { type: 'unexpected'; cause: unknown };
-```
-
-**Consuming Results in a Server Component:**
-```typescript
-const result = await sendContactRequest(data);
-
-if (!result.ok) {
-  if (result.error.type === 'validation') {
-    // handle field errors
-  } else {
-    // handle generic error
-  }
-  return;
-}
-
-// result.value is available here
-```
-
-**Never throw AppErrors.** Throw only for truly unexpected runtime errors (programming mistakes), not for business logic errors (validation, not found, auth failures).
+`src/lib/types.ts` is the single source for both types. The `/amplify-action` skill creates this file automatically if it doesn't exist.
 
 ---
 
