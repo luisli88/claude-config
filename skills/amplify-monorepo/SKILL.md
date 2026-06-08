@@ -700,326 +700,46 @@ export const handler = async (event: APIGatewayAuthorizerEvent) => {
 
 ## Step 4 — Consuming the backend from the apps
 
-### 4.1 packages/core — createServerClient
+See `references/amplify-clients.md` for the `createServerClient` factory pattern in `packages/core` and the `getGuestClient` / `getAuthenticatedClient` factories per app.
 
-```typescript
-// packages/core/src/auth/client.ts
-import { generateServerClientUsingCookies } from '@aws-amplify/adapter-nextjs/api';
+For each domain that needs a Server Action, invoke `/amplify-action <domain> cognito` (or `groups` for admin operations).
 
-export const createServerClient =
-  <Schema extends Record<string | number | symbol, unknown> = never>(outputs: NextServer.CreateServerRunnerInput['config'], cookies: () => Promise<ReadonlyRequestCookies>) =>
-  (config?: { authMode?: GraphQLAuthMode; authToken?: string }) =>
-    generateServerClientUsingCookies<Schema>({ ...config, config: outputs, cookies });
-```
-
-### 4.2 Client factories per app
-
-Each app has its own `lib/client.ts` marked with `'use server'`:
-
-```typescript
-// apps/web/src/lib/client.ts  (same pattern in apps/admin/src/lib/client.ts)
-'use server';
-
-import { cookies } from 'next/headers';
-import { createServerClient } from '@<project>/core';
-import config from '@config/amplify_outputs.json';
-import { Schema } from '@amplify/data/resource';
-
-export async function getGuestClient() {
-  return createServerClient<Schema>(config, cookies)();
-}
-
-export async function getAuthenticatedClient() {
-  return createServerClient<Schema>(config, cookies)({ authMode: 'userPool' });
-}
-```
-
-### 4.3 Server Actions — apps/\*/src/actions/
-
-All backend operations (queries and mutations) live in `actions/` as Next.js Server Actions.
-No network calls in components or in `useEffect`.
-
-**Use `actions/` in both the web and admin apps:**
-
-```typescript
-// apps/web/src/actions/payment.ts
-'use server';
-
-import { getAuthenticatedClient } from '../lib/client';
-
-/** Finalizes the payment and registers the transaction. */
-export async function finalizePayment(input: FinalizePaymentInput): Promise<Result<Transaction, AppError>> {
-  const client = await getAuthenticatedClient();
-  // 1. Fetch payment plan
-  // 2. Create UserPlan (PENDING)
-  // 3. Create Transaction
-  // 4. Fire async notification mutation
-  // 5. Return Result<T, E>
-}
-```
-
-**Error pattern — Result<T, E>:**
-
-```typescript
-type Result<T, E = AppError> = { ok: true; value: T } | { ok: false; error: E };
-
-type AppError = { type: 'validation'; fields: Record<string, string> } | { type: 'not_found'; resource: string } | { type: 'unauthorized' } | { type: 'unexpected'; cause: unknown };
-```
-
-**Rule:** AppSync mutations are called from Server Actions, never from Client Components directly. Client Components call Server Actions via form `action` props or `startTransition`.
+Rules:
+- `apps/*/src/actions/` is the only place where Amplify client is instantiated. No network calls in components.
+- Client Components call Server Actions via form `action` props or `startTransition`. Never directly.
+- Actions always return `Result<T, AppError>`. See `references/amplify-clients.md` for the error types.
 
 ---
 
 ## Step 5 — Transactional email with Maizzle
 
-### 5.1 packages/email-templates structure
+Invoke `/maizzle-email <ses-domain>` to scaffold `packages/email-templates` with Maizzle, the Lambda renderer helper, the CDK SES domain identity construct, and the Lambda Layer for template bundling. Wire the layer and SES policy in `backend.ts` as described in the skill output.
 
-```
-emails/
-├── welcome.html              # One file per email type
-├── otp-code.html
-├── payment-receipt.html
-├── payment-failed.html
-└── admin-notification.html
-```
-
-### 5.2 Base layout
-
-```html
-<!-- layouts/base.html -->
-<x-root>
-  <x-head>
-    <title>{{ page.title }}</title>
-  </x-head>
-  <body>
-    <x-partial src="partials/headers/brand.html"></x-partial>
-    <content></content>
-    <x-partial src="partials/footers/brand.html"></x-partial>
-  </body>
-</x-root>
-```
-
-### 5.3 Email template with variables
-
-```html
-<!-- emails/welcome.html -->
---- layout: layouts/base.html title: "Welcome" ---
-<p>Hello {{ page.userName }},</p>
-<p>Your session is on {{ page.sessionDate }} at {{ page.sessionTime }}</p>
-```
-
-### 5.4 Renderer in Lambda (shared/email/template-renderer.ts)
-
-```typescript
-import { Config, render } from '@maizzle/framework';
-import emailPreset from 'tailwindcss-preset-email';
-
-const LAMBDA_TEMPLATES_PATH = '/opt/email-templates';
-
-export async function renderEmailTemplate<T extends Record<string, any>>(templateName: string, data: T): Promise<string> {
-  const template = fs.readFileSync(path.join(LAMBDA_TEMPLATES_PATH, 'emails', `${templateName}.html`), 'utf8');
-  const config = require(path.join(LAMBDA_TEMPLATES_PATH, 'config.production.js'));
-
-  const { html } = await render(template, {
-    ...config,
-    components: { ...config.components, root: LAMBDA_TEMPLATES_PATH },
-    locals: { currentYear: new Date().getFullYear(), ...data },
-    css: {
-      ...config.css,
-      tailwind: {
-        content: (config.css?.tailwind?.content ?? []).map((p: string) => path.join(LAMBDA_TEMPLATES_PATH, p)),
-        presets: [emailPreset],
-      },
-    },
-  });
-
-  return html;
-}
-```
-
-### 5.5 i18n in emails — pattern to implement
-
-Email templates are currently single-language. Two patterns for multi-language support:
-
-**Option A — Translation variables in `locals`** (recommended for few strings):
-
-```typescript
-// In the Lambda notification function:
-const translations = loadTranslations(locale); // Load from JSON in the Layer
-const html = await renderEmailTemplate('welcome', {
-  ...data,
-  locale,
-  t: translations,
-});
-```
-
-```html
-<!-- emails/welcome.html -->
-<p>{{ page.t.greeting }}, {{ page.userName }}</p>
-```
-
-**Option B — Separate templates per locale** (recommended when templates vary significantly):
-
-```
-emails/
-├── welcome.es.html
-├── welcome.en.html
-└── welcome.pt.html
-```
-
-```typescript
-const html = await renderEmailTemplate(`welcome.${locale}`, data);
-```
-
-**The locale** is taken from the Cognito user attribute or passed explicitly in the mutation that triggers the notification.
+Note: SES domain verification and DNS records (DKIM, SPF, DMARC) require manual steps in AWS Console.
 
 ---
 
 ## Step 6 — i18n in Next.js apps
 
-### 6.1 Install next-intl
+Invoke `/next-intl-setup apps/web/src/` and then `/next-intl-setup apps/admin/src/` to configure `next-intl` in each app separately.
 
-```bash
-npm install next-intl
-```
-
-### 6.2 Message structure
-
-```
-apps/<app>/messages/
-├── es/
-│   ├── common.json
-│   └── [page].json
-├── en/
-│   └── ...
-└── pt/
-    └── ...
-```
-
-Messages are **not** shared between apps. Each app has its own.
-
-### 6.3 Configuration
-
-```typescript
-// apps/<app>/src/i18n/routing.ts
-import { defineRouting } from 'next-intl/routing';
-export const routing = defineRouting({
-  locales: ['es', 'en', 'pt'] as const,
-  defaultLocale: 'es' as const,
-});
-```
-
-```typescript
-// apps/<app>/src/i18n/request.ts
-import { getRequestConfig } from 'next-intl/server';
-import { routing } from './routing';
-
-export default getRequestConfig(async ({ requestLocale }) => {
-  const locale = (await requestLocale) || routing.defaultLocale;
-  return {
-    locale,
-    messages: (await import(`../../messages/${locale}/common.json`)).default,
-  };
-});
-```
-
-### 6.4 Usage in Server Components
-
-```typescript
-import { getTranslations } from 'next-intl/server';
-
-export default async function Page() {
-  const t = await getTranslations('common');
-  return <h1>{t('title')}</h1>;
-}
-```
+Rules:
+- Each app has its own `messages/` directory — translations are not shared between apps.
+- Both apps use the same locale structure: `es/` (default), `en/`, `pt/` with `common.json` per locale.
 
 ---
 
 ## Step 7 — Design system (packages/ui)
 
+Invoke `/tailwind-theme packages/ui/src/styles/globals.css` to configure the shared `@theme` token block. Both apps import this file — do not duplicate it.
+
+For each UI component in `packages/ui`, invoke `/ui-component <Name> <atom|molecule|organism> [variants]`.
+
 Rules:
-
-- No business logic — UI only: styles, variants, layout.
-- Components typed with explicit interfaces.
-- Design tokens defined in `packages/ui/src/styles/globals.css` with `@theme`. No raw hex values in components.
+- No business logic in `packages/ui` — UI only: styles, variants, layout.
+- All components typed with explicit `interface`. No `any`.
 - All components exported from `src/index.ts`.
-
-### Tailwind v4 @theme setup
-
-**`packages/ui/src/styles/globals.css`** — single source of truth for design tokens. Both apps import this file.
-
-```css
-@import "tailwindcss";
-
-@theme {
-  /* Primary brand color scale */
-  --color-primary-50: #eef1f9;
-  --color-primary-100: #d5dcf0;
-  --color-primary-700: #233369;
-  --color-primary-900: #111a3d;
-
-  /* Secondary */
-  --color-secondary-600: #34508f;
-
-  /* Neutral */
-  --color-neutral-0: #ffffff;
-  --color-neutral-900: #0f1520;
-
-  /* Accent */
-  --color-accent-gold: #c9a84c;
-  --color-accent-gold-light: #e8d5a0;
-
-  /* Typography */
-  --font-family-display: "Inter", sans-serif;
-  --font-family-body: "Inter", sans-serif;
-}
-```
-
-Token names become Tailwind utility classes: `bg-primary-700`, `text-accent-gold`, etc.
-
-### Component pattern
-
-```typescript
-// packages/ui/src/atoms/button.tsx
-
-interface ButtonProps {
-  variant?: 'primary' | 'secondary' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
-  children: React.ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
-  type?: 'button' | 'submit' | 'reset';
-  className?: string;
-}
-
-/** Primary interactive element with variant and size support. */
-export function Button({ variant = 'primary', size = 'md', className, children, ...props }: ButtonProps) {
-  const base = 'inline-flex items-center justify-center font-medium transition-colors';
-  const variants = {
-    primary: 'bg-primary-700 text-neutral-0 hover:bg-primary-900',
-    secondary: 'border-2 border-primary-700 text-primary-700 hover:bg-primary-50',
-    ghost: 'text-primary-700 hover:bg-primary-50',
-  };
-  const sizes = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-5 py-2.5 text-base',
-    lg: 'px-7 py-3.5 text-lg',
-  };
-
-  return (
-    <button className={`${base} ${variants[variant]} ${sizes[size]} ${className ?? ''}`} {...props}>
-      {children}
-    </button>
-  );
-}
-```
-
-### Required installations in packages/ui
-
-```bash
-npm install react-hook-form @hookform/resolvers zod   # For molecules/form.tsx
-```
+- `react-hook-form`, `@hookform/resolvers`, and `zod` are needed for molecules with forms.
 
 ---
 
