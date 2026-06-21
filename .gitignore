@@ -6,15 +6,18 @@ history.jsonl
 stats-cache.json
 settings.local.json
 .last-cleanup
+.last-update-result.json
 settings.json
 
 # Directorios de sesión y caché
 backups/
 cache/
+daemon/
 debug/
 downloads/
 file-history/
 ide/
+jobs/
 paste-cache/
 projects/
 session-env/
@@ -32,3 +35,5 @@ mcp-needs-auth-cache.json
 # Skills adicionales
 skills/omarchy
 
+# Logs
+daemon.log
