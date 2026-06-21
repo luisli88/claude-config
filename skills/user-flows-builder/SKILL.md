@@ -3,11 +3,11 @@ name: user-flows-builder
 description: >
   Completa el documento de flujos de usuario (SDD) para un proyecto nuevo o parcialmente documentado.
   Carga la plantilla de Bear, llena los flujos con IA usando la descripción que el usuario provee, y guarda
-  el resultado como nota en Bear bajo el tag proyectos/<nombre_proyecto>.
+  el resultado como nota en Bear bajo el tag proyectos/[nombre_proyecto].
   Usar cuando el usuario quiere levantar requerimientos con un cliente, generar flujos de usuario para una nueva aplicación,
   completar un documento de flujos parcial, o describir una app y necesita un borrador de flujos de usuario.
   Invocar también cuando se mencionan flujos de usuario, levantamiento de requerimientos, SDD, o user flows.
-argument-hint: "'Descripción de la app' [ruta-o-titulo-de-nota-parcial]"
+argument-hint: "Descripción de la app [ruta-o-titulo-de-nota-parcial]"
 user-invocable: true
 ---
 
@@ -68,7 +68,7 @@ Solo completa lo que está vacío, usa placeholders `[...]`, o está marcado com
 2. Si la descripción menciona explícitamente el nombre del proyecto o la app, úsalo.
 3. Si no está claro, infiere un nombre corto y descriptivo a partir del contexto.
 
-El nombre del proyecto se usará como tag en Bear: `proyectos/<nombre_proyecto>` (sin espacios, en minúsculas con guiones si aplica).
+El nombre del proyecto se usará como tag en Bear: `proyectos/[nombre_proyecto]` (sin espacios, en minúsculas con guiones si aplica).
 
 ---
 
@@ -136,7 +136,7 @@ Una vez confirmado el contenido (o si no había ambigüedades bloqueantes), crea
 
 - **Título:** `Flujos de usuario — [Nombre del proyecto]`
 - **Contenido:** el documento completo en Markdown
-- **Tags:** `["proyectos/<nombre_proyecto>"]`
+- **Tags:** `["proyectos/[nombre_proyecto]"]`
 
 Confirma al usuario el título de la nota creada y el tag bajo el que fue guardada.
 
