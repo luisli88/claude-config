@@ -380,32 +380,67 @@ enum AuthError: Error {
 
 ### Estrategia
 
-Prioridad de pruebas: Integración, Unidad, E2E. Justificación: las pruebas de integración cubren también las pruebas de unidad. E2E requiere un escenario complejo y puede gastar más tokens en el proceso de pruebas.
+Tres niveles de prueba en orden de prioridad:
+
+1. **Unit/Integration** — lógica de negocio con mocks; cobertura ≥ 90% de business logic
+2. **E2E / UI Tests** — flujos críticos end-to-end verificados sobre el simulador
+3. **Visual** — no se testea (layout, colores, espaciados)
 
 **Required:**
 
-- 90%
+- ≥ 90% de cobertura en business logic (ViewModels, Services, Repositories, Models, Utils)
 - Happy path + al menos un error path por función crítica
 - Tests unitarios sin dependencias externas reales
-- Los mocks para enmascarar consultas en bases de datos y en consultas de APIs
+- Mocks para enmascarar consultas a bases de datos y APIs
+- Tests E2E para cada flujo crítico de usuario
 
 **Herramientas:**
 
 - Jest + Testing Library para Web
-- XCTest para iOS (unit tests de ViewModels y Services)
+- XCTest para iOS — unit tests de ViewModels, Services y Repositories
+- XCUITest para iOS — E2E de flujos críticos (target `BugetoIOSUITests`)
 
 ### Qué se testea siempre
 
 - Lógica de negocio (hooks/utils en Web, ViewModels en iOS)
 - Formularios con validación
-- Services de red: respuesta correcta y manejo de errores (con mock de Alamofire)
+- Services: respuesta correcta y manejo de errores
 - Repositories: operaciones CRUD sobre SwiftData en memoria
+- **Flujos críticos E2E** (ver sección siguiente)
+
+### Cuándo escribir tests E2E (XCUITest / Playwright)
+
+Un flujo requiere test E2E cuando **cumple al menos una** de estas condiciones:
+
+- Es el entry point principal del usuario (onboarding, login, dashboard)
+- Involucra más de una pantalla en secuencia (formulario → confirmación → resultado)
+- Es destructivo o irreversible (eliminar cuenta, cerrar mes)
+- La lógica de coordinación entre pantallas no puede testearse a nivel de ViewModel
+- Es un flujo de monetización o registro de transacción
+
+**Flujos mínimos a cubrir con E2E en iOS:**
+
+| Flujo | Descripción |
+|---|---|
+| Onboarding | Completar el flujo de configuración inicial |
+| Navegación de tabs | Todos los tabs son accesibles tras onboarding |
+| Registro de gasto | Abrir daily entry, llenar formulario, confirmar |
+| Historial de balance | Navegar meses hacia atrás y adelante |
+| Lista de categorías | Acceder a la pantalla y verificar que carga |
+
+**Reglas para XCUITest en iOS:**
+
+- La app debe soportar el launch argument `--uitesting`: activa SwiftData en memoria y marca onboarding como completado
+- Cada test es independiente: no asume estado de un test anterior
+- Usar `accessibilityIdentifier` para elementos cuya posición puede cambiar entre versiones de iOS
+- No usar `sleep()` — usar `XCTNSPredicateExpectation` para esperas
 
 ### Qué NO se testea
 
-- Estilos visuales ni layout de SwiftUI
-- Librerías de terceros (Alamofire, CocoaPods deps)
-- Views directamente (se testea el ViewModel que las alimenta)
+- Estilos visuales ni layout de SwiftUI (colores, espaciados, tipografía)
+- Librerías de terceros
+- Componentes atómicos de UI (Atoms, Molecules) de forma aislada — se cubren indirectamente vía E2E
+- Animaciones y transiciones
 
 ---
 
