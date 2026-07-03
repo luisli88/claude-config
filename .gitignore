@@ -37,3 +37,9 @@ skills/omarchy
 
 # Logs
 daemon.log
+
+# Estado y lock del daemon
+daemon.lock
+daemon.status.json
+daemon-auth-status.json
+daemon-auth-cooldown

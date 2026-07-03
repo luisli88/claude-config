@@ -202,6 +202,18 @@ infra/
 - Usar Terraform o cualquier herramienta de IaC alternativa a CDK, salvo que un caso real documentado lo justifique (ver ADR-03 de la plantilla)
 - Usarla todavía como default automático para un proyecto nuevo si el criterio de transición no se ha cumplido — en ese caso, Amplify Gen 2 sigue siendo la elección correcta salvo justificación explícita
 
+**Workflow para nuevo proyecto cliente (usando la plantilla IaC):**
+
+Cuando se inicia un proyecto nuevo que usa `@iac-template/core`, ejecutar en orden:
+
+1. `/speckit.constitution` — usa el skill `iac-template-constitution` (extiende esta constitución con reglas específicas del template)
+2. `/speckit.specify` — usa el skill `iac-template-specify` (captura escenario E1/E2/E3, capas y restricciones)
+3. `/speckit.plan` — usa el skill `iac-template-plan` (mapea vocabulario controlado → Constructs → genera `infra/app.ts`)
+4. `/speckit.tasks` — skill estándar de Spec Kit (descompone la implementación en tareas)
+
+Skills instalados en: `~/.claude/skills/iac-template-*/SKILL.md`
+Fuente: `~/Documents/Claude/Projects/InfraYDev/skills/`
+
 ### Herramientas
 
 **Required:**
@@ -420,13 +432,13 @@ Un flujo requiere test E2E cuando **cumple al menos una** de estas condiciones:
 
 **Flujos mínimos a cubrir con E2E en iOS:**
 
-| Flujo | Descripción |
-|---|---|
-| Onboarding | Completar el flujo de configuración inicial |
-| Navegación de tabs | Todos los tabs son accesibles tras onboarding |
-| Registro de gasto | Abrir daily entry, llenar formulario, confirmar |
-| Historial de balance | Navegar meses hacia atrás y adelante |
-| Lista de categorías | Acceder a la pantalla y verificar que carga |
+| Flujo                | Descripción                                     |
+| -------------------- | ----------------------------------------------- |
+| Onboarding           | Completar el flujo de configuración inicial     |
+| Navegación de tabs   | Todos los tabs son accesibles tras onboarding   |
+| Registro de gasto    | Abrir daily entry, llenar formulario, confirmar |
+| Historial de balance | Navegar meses hacia atrás y adelante            |
+| Lista de categorías  | Acceder a la pantalla y verificar que carga     |
 
 **Reglas para XCUITest en iOS:**
 
