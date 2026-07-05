@@ -1,7 +1,7 @@
 ---
 name: user-flow-transformer
 description: Transforms a user flows document into the input format required by /speckit-spec. ONLY run after user-flow-validator confirms the document is ready (no blocking errors).
-argument-hint: "Path to the validated user flows document"
+argument-hint: "Path to the validated user flows document [destination for the generated prompt]"
 user-invocable: true
 disable-model-invocation: false
 ---
@@ -13,6 +13,8 @@ $ARGUMENTS
 ```
 
 The file path is **required**. If not provided, ask the user before continuing.
+The second argument, the **destination path for the generated prompt**, is optional. If not
+provided, ask for it in Step 6 — the user may decline to save it.
 
 **Precondition:** this skill assumes `user-flow-validator` was already run on the same file and reported no blocking errors. If unsure, run `/user-flow-validator <path>` first.
 
@@ -133,4 +135,7 @@ N. [Actor] on [Screen]: [action] → [result] [BLOCKED UNTIL: step M completed b
 1. Show the consolidated roles table and ask: *"Do these roles and descriptions correctly represent the people who will use the application?"*
 2. If the user adjusts anything, update the table and the generated prompt accordingly.
 3. Show the final prompt and ask: *"Shall we proceed with spec generation in Speckit?"*
-4. If confirmed, deliver the prompt ready to be executed.
+4. If the destination path wasn't provided as the second argument, ask the user for the absolute
+   path where the generated prompt should be saved as a file — they may decline. If a path is
+   available, write the prompt to that path with the `Write` tool.
+5. If confirmed, deliver the prompt ready to be executed.

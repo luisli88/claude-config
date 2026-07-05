@@ -1,7 +1,7 @@
 ---
 name: user-flow-validator
 description: Validates that a user flows document is complete and consistent before passing it to the Speckit transformation skill. Always run this before user-flow-transformer.
-argument-hint: "Path to the user flows document"
+argument-hint: "Path to the user flows document [destination for the validation report]"
 user-invocable: true
 disable-model-invocation: false
 ---
@@ -13,6 +13,8 @@ $ARGUMENTS
 ```
 
 The file path is **required**. If not provided, ask the user before continuing.
+The second argument, the **destination path for the validation report**, is optional. If not
+provided, ask for it after the report is generated (Step 5) — the user may decline to save it.
 
 # Skill: User Flow Validator
 
@@ -151,7 +153,15 @@ The following terms appear in the flows and may need a definition:
 
 ---
 
-## Step 5 — Continuation decision
+## Step 5 — Save the report
+
+Show the report in the chat. Then, if the destination path wasn't provided as the second argument,
+ask the user for the absolute path where the report should be saved as a file — they may decline.
+If a path is available, write the report to that path with the `Write` tool.
+
+---
+
+## Step 6 — Continuation decision
 
 - If there are **blocking errors:** show the report and stop. Do not invoke the transformation skill.
 - If there are **only warnings:** show the report and ask: *"Do you want to fix the warnings before continuing, or shall we proceed with the transformation?"*

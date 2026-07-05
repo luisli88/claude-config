@@ -1,156 +1,163 @@
 ---
 name: user-flows-builder
 description: >
-  Completa el documento de flujos de usuario (SDD) para un proyecto nuevo o parcialmente documentado.
-  Carga la plantilla de Bear, llena los flujos con IA usando la descripción que el usuario provee, y guarda
-  el resultado como nota en Bear bajo el tag proyectos/[nombre_proyecto].
-  Usar cuando el usuario quiere levantar requerimientos con un cliente, generar flujos de usuario para una nueva aplicación,
-  completar un documento de flujos parcial, o describir una app y necesita un borrador de flujos de usuario.
-  Invocar también cuando se mencionan flujos de usuario, levantamiento de requerimientos, SDD, o user flows.
-argument-hint: "Descripción de la app [ruta-o-titulo-de-nota-parcial]"
+  Completes the user flows document (SDD) for a new or partially documented project.
+  Uses the template embedded in the skill (or a partial document the user points to as a file path),
+  fills in the flows with AI using the description the user provides, and saves the result to the
+  destination path the user indicates.
+  Use when the user wants to gather requirements with a client, generate user flows for a new
+  application, complete a partial flows document, or describe an app and needs a draft of user flows.
+  Also invoke when user flows, requirements gathering, SDD, or user flows are mentioned.
+argument-hint: "App description [partial-document-path] [destination-path]"
 user-invocable: true
 ---
 
-## Argumentos
+## Arguments
 
 ```text
 $ARGUMENTS
 ```
 
-El primer argumento es siempre la **descripción o instrucciones** para completar los flujos (obligatorio).
-El segundo argumento, si existe, es una **referencia a un documento parcial**: puede ser:
-- Título de una nota de Bear (texto sin extensión)
-- Ruta absoluta a un archivo `.md` en el sistema de archivos
+The first argument is always the **description or instructions** for completing the flows (required).
+The second argument, if present, is an **absolute path to a partial document** (`.md`) that replaces
+the template as the base structure.
+The third argument, if present, is the **absolute destination path** where the generated document
+will be saved.
 
-Si no se proporcionó descripción, pídela antes de continuar.
+If no description was provided, ask for it before continuing.
+If no destination path was provided, ask for it before saving (Step 5).
 
 ---
 
 # Skill: User Flows Builder
 
-## Propósito
+## Purpose
 
-Este skill genera o completa un documento de flujos de usuario basado en la plantilla estándar de Bear
-(`Plantilla — Flujos de Usuario (SDD)`, tag `#templates/sdd`). El objetivo es producir un borrador
-útil como base para el levantamiento de requerimientos con el cliente: flujos comunes entre muchas
-aplicaciones (autenticación, perfil, onboarding, etc.) se completan automáticamente; los flujos
-específicos del negocio se rellenan con la información que el usuario proveyó.
-
----
-
-## Paso 1 — Obtener el contenido base
-
-### Si NO hay documento parcial (proyecto nuevo):
-
-Carga la plantilla de Bear usando la herramienta `mcp__Bear__get_note`:
-- Busca por título: `Plantilla — Flujos de Usuario (SDD)`
-- Si no la encuentra, busca con `mcp__Bear__search_notes` usando `#templates/sdd`
-- Extrae el contenido de la plantilla para usarlo como estructura base
-
-### Si HAY documento parcial:
-
-**Detecta el tipo de referencia:**
-
-- Si la referencia contiene `/` o termina en `.md` → es una ruta de archivo. Léela con la herramienta `Read`.
-- Si no → es un título de nota de Bear. Búscala con `mcp__Bear__get_note` por título.
-- Si el documento parcial no se encuentra, comunícalo y detente.
-
-El documento parcial reemplaza a la plantilla como estructura base. Respeta todo lo que ya está escrito.
-Solo completa lo que está vacío, usa placeholders `[...]`, o está marcado como incompleto.
+This skill generates or completes a user flows document based on the standard template embedded in
+this skill ([template.md](template.md)). The goal is to produce a useful draft as a base for
+requirements gathering with the client: common flows shared by many applications (authentication,
+profile, onboarding, etc.) are completed automatically; business-specific flows are filled in using
+the information the user provided.
 
 ---
 
-## Paso 2 — Identificar el nombre del proyecto
+## Step 1 — Get the base content
 
-**Prioridad para determinar el nombre del proyecto:**
+### If there is NO partial document (new project):
 
-1. Si el documento parcial existe y su título sigue el patrón `Flujos de usuario — [Nombre]`, extrae el nombre de ahí.
-2. Si la descripción menciona explícitamente el nombre del proyecto o la app, úsalo.
-3. Si no está claro, infiere un nombre corto y descriptivo a partir del contexto.
+Read the template embedded in this skill ([template.md](template.md)) with the `Read` tool and use
+it as the base structure.
 
-El nombre del proyecto se usará como tag en Bear: `proyectos/[nombre_proyecto]` (sin espacios, en minúsculas con guiones si aplica).
+### If there IS a partial document:
 
----
+The second argument must be an absolute path to a `.md` file. Read it with the `Read` tool.
+If the file doesn't exist, report it and stop.
 
-## Paso 3 — Generar los flujos
-
-Completa el documento usando la descripción/instrucciones del usuario. Guíate por estos principios:
-
-### Qué flujos incluir
-
-Incluye siempre los flujos **comunes** que apliquen al tipo de app descrita:
-- Registro e inicio de sesión (si la app tiene usuarios)
-- Recuperación de contraseña (si aplica)
-- Onboarding o configuración inicial (si aplica)
-- Cierre de sesión
-
-Agrega flujos **específicos del negocio** a partir de la descripción. Si la descripción menciona
-entidades, acciones o procesos clave, convierte cada uno en un flujo o en una variación.
-
-### Cómo completar cada sección
-
-- **Objetivo del negocio**: explica el valor concreto que este flujo genera para el negocio o el usuario.
-- **Actores**: identifica quién inicia el flujo y quién más participa.
-- **Precondiciones**: lista solo las que son realmente necesarias (omite la sección si no hay ninguna).
-- **Punto de entrada**: describe dónde está el usuario y qué acción dispara el flujo.
-- **Pasos**: escribe oraciones naturales. Menciona qué datos ve el usuario en cada pantalla y qué debe llenar en formularios. Usa `↳ Espera que [persona] complete el paso N.` cuando hay dependencia entre actores.
-- **Resultado esperado**: describe qué queda registrado, enviado o disponible al terminar.
-- **Variaciones**: incluye solo las que producen un resultado de negocio distinto (no errores triviales).
-- **Notas del cliente**: deja esta sección vacía o con un placeholder si no hay información específica.
-
-### IDs de flujo
-
-Asigna IDs correlativos: `UF-001`, `UF-002`, etc. Si el documento parcial ya tiene IDs asignados,
-continúa desde el último usado.
-
-### Estado
-
-Todos los flujos generados por este skill tienen estado `Borrador`.
-
-### Glosario
-
-Completa el glosario con términos del dominio de negocio mencionados en la descripción que puedan
-ser ambiguos fuera de ese contexto. Si no hay términos especiales, deja el glosario vacío con la
-estructura de tabla intacta.
+The partial document replaces the template as the base structure. Respect everything already
+written. Only complete what's empty, uses `[...]` placeholders, or is marked as incomplete.
 
 ---
 
-## Paso 4 — Detectar y resolver ambigüedades
+## Step 2 — Identify the project name
 
-Antes de guardar, revisa el borrador generado e identifica:
+**Priority for determining the project name:**
 
-- **Definiciones incompletas**: flujos donde la descripción no da suficiente información para completar una sección.
-- **Contradicciones**: dos partes del documento o de las instrucciones que se contradicen.
-- **Ambigüedades bloqueantes**: donde hay dos interpretaciones igualmente válidas y la elección afecta el flujo.
+1. If the partial document exists and its title follows the pattern `Flujos de usuario — [Name]`,
+   extract the name from there.
+2. If the description explicitly mentions the project or app name, use it.
+3. If unclear, infer a short, descriptive name from the context.
 
-Si encuentras alguna, **detente y pregunta al usuario** antes de guardar. Agrupa todas las preguntas
-en un solo mensaje para no interrumpir más de una vez. Si las ambigüedades son menores o de estilo,
-elige la opción más razonable y documéntala en "Notas del cliente" del flujo correspondiente.
-
----
-
-## Paso 5 — Guardar en Bear
-
-Una vez confirmado el contenido (o si no había ambigüedades bloqueantes), crea la nota en Bear con
-`mcp__Bear__create_note`:
-
-- **Título:** `Flujos de usuario — [Nombre del proyecto]`
-- **Contenido:** el documento completo en Markdown
-- **Tags:** `["proyectos/[nombre_proyecto]"]`
-
-Confirma al usuario el título de la nota creada y el tag bajo el que fue guardada.
+The project name is used in the document's header and, if the user didn't give a destination path,
+to suggest a file name (`flujos-de-usuario-[project-name].md`, no spaces, lowercase with hyphens
+where applicable).
 
 ---
 
-## Formato del documento generado
+## Step 3 — Generate the flows
 
-Respeta exactamente la estructura de la plantilla. No inventes secciones nuevas ni elimines las existentes.
-El documento debe poder usarse directamente como input para `/user-flow-validator`.
+Complete the document using the user's description/instructions. Follow these principles:
 
-Encabezado del documento (reemplaza los placeholders de la plantilla):
+### Which flows to include
+
+Always include the **common** flows that apply to the type of app described:
+- Sign-up and login (if the app has users)
+- Password recovery (if applicable)
+- Onboarding or initial setup (if applicable)
+- Logout
+
+Add **business-specific** flows based on the description. If the description mentions entities,
+actions, or key processes, turn each one into a flow or a variation.
+
+### How to complete each section
+
+- **Business goal**: explain the concrete value this flow generates for the business or the user.
+- **Actors**: identify who starts the flow and who else takes part.
+- **Preconditions**: list only the ones that are truly necessary (omit the section if there are none).
+- **Entry point**: describe where the user is and what action triggers the flow.
+- **Steps**: write natural sentences. Mention what data the user sees on each screen and what they
+  need to fill in on forms. Use `↳ Espera que [person] complete el paso N.` when there's a
+  dependency between actors.
+- **Expected result**: describe what ends up recorded, sent, or available once it's done.
+- **Variations**: include only the ones that produce a different business outcome (not trivial
+  errors).
+- **Client notes**: leave this section empty or with a placeholder if there's no specific
+  information.
+
+### Flow IDs
+
+Assign sequential IDs: `UF-001`, `UF-002`, etc. If the partial document already has IDs assigned,
+continue from the last one used.
+
+### Status
+
+All flows generated by this skill have status `Borrador`.
+
+### Glossary
+
+Fill in the glossary with business domain terms mentioned in the description that could be
+ambiguous outside that context. If there are no special terms, leave the glossary empty with the
+table structure intact.
+
+---
+
+## Step 4 — Detect and resolve ambiguities
+
+Before saving, review the generated draft and identify:
+
+- **Incomplete definitions**: flows where the description doesn't give enough information to
+  complete a section.
+- **Contradictions**: two parts of the document or of the instructions that contradict each other.
+- **Blocking ambiguities**: where there are two equally valid interpretations and the choice affects
+  the flow.
+
+If you find any, **stop and ask the user** before saving. Group all questions into a single message
+so you don't interrupt more than once. If the ambiguities are minor or stylistic, pick the most
+reasonable option and document it in the corresponding flow's "Notas del cliente" section.
+
+---
+
+## Step 5 — Save the document
+
+If the third argument (destination path) wasn't provided, ask the user for the absolute path where
+the document should be saved. You can suggest `flujos-de-usuario-[project-name].md` in the current
+directory as a default option.
+
+Once the content is confirmed (or if there were no blocking ambiguities) and the destination path is
+known, save the complete document in Markdown with the `Write` tool.
+
+Confirm to the user the path where the document was saved.
+
+---
+
+## Format of the generated document
+
+Follow the template structure exactly. Don't invent new sections or remove existing ones. The
+document must be usable directly as input for `/user-flow-validator`.
+
+Document header (replace the template placeholders):
 
 ```markdown
-# Flujos de usuario — [Nombre del proyecto]
+# Flujos de usuario — [Project name]
 
 > **¿Qué es este documento?**
 > ...
@@ -159,5 +166,5 @@ Encabezado del documento (reemplaza los placeholders de la plantilla):
 > ...
 ```
 
-Cada flujo sigue la estructura de la plantilla sin omitir ninguna sección (salvo "Precondiciones"
-cuando genuinamente no hay ninguna).
+Each flow follows the template structure without omitting any section (except "Precondiciones" when
+there genuinely are none).
