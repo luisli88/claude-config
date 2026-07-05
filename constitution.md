@@ -214,6 +214,61 @@ Cuando se inicia un proyecto nuevo que usa `@iac-template/core`, ejecutar en ord
 Skills instalados en: `~/.claude/skills/iac-template-*/SKILL.md`
 Fuente: `~/Documents/Claude/Projects/InfraYDev/skills/`
 
+# Constitution Amendment — Frontend Desktop Linux (Tauri)
+
+> Insertar en `~/.claude/constitution.md` inmediatamente después de la sección
+> `### Frontend Mobile — iOS` y antes de `### Herramientas` (≈ línea 216).
+
+---
+
+### Frontend Desktop — Linux Shell (Tauri)
+
+**Required:**
+
+- Tauri 2.0 (`@tauri-apps/cli`) como framework de shell para Linux
+- Rust en `src-tauri/src/` para toda integración con el SO: filesystem, diálogos nativos, file watcher, eventos del sistema
+- Tauri Commands (`#[tauri::command]`) como único punto de entrada desde el WebView al proceso nativo
+- Tauri Plugins oficiales para capacidades nativas: `tauri-plugin-fs`, `tauri-plugin-dialog`
+- WebKitGTK como motor del WebView (mismo engine WebKit que WKWebView en Apple)
+- `tauri.conf.json` + `capabilities/` para declarar qué commands y plugins puede invocar el renderer
+- Tipos de payloads IPC definidos en el package `shared-types` del monorepo y reusados en Rust vía `serde`
+
+**Estructura del shell:**
+
+```
+apps/linux-shell/
+  src-tauri/
+    src/
+      main.rs         ← Entry point: setup de la app Tauri
+      lib.rs          ← Registro de commands y plugins
+      commands/       ← Tauri commands por dominio (workspace, dialogs, sync, export)
+    Cargo.toml
+    tauri.conf.json
+    capabilities/     ← Declaración de permisos
+  src/                ← Renderer: index.html + packages/ compilados vía bundler
+  package.json        ← Tooling TypeScript / bundler para el renderer
+```
+
+**Puente nativo:**
+
+| Dirección       | Mecanismo                                                |
+| --------------- | -------------------------------------------------------- |
+| Renderer → Rust | `invoke("command_name", args)`                           |
+| Rust → Renderer | `emit("event_name", payload)` + `listen()` en TypeScript |
+
+**Reglas:**
+
+- Los Tauri commands son la única forma de acceder al SO desde el renderer — sin acceso directo al filesystem desde JavaScript
+- Los eventos del sistema hacia el renderer se emiten desde Rust (`emit`), nunca se hace polling desde el renderer
+- Sin lógica de negocio en `main.rs` o `lib.rs` — solo setup y registro; la lógica va en `commands/`
+- Los structs Rust de los payloads IPC deben derivar `serde::Serialize` y `serde::Deserialize`
+
+**Prohibited:**
+
+- Acceso directo al filesystem o al SO desde el renderer (siempre vía Tauri command o plugin)
+- Lógica de negocio en `main.rs` o `lib.rs`
+- `unsafe` Rust sin justificación documentada en comentario inline
+
 ### Herramientas
 
 **Required:**
